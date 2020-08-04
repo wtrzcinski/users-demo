@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.codete.user.periphery.r2dbc.config.R2dbcAutoConfiguration

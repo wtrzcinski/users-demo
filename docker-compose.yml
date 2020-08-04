@@ -1,0 +1,116 @@
+version: '3.7'
+
+networks:
+  kafka:
+    driver: bridge
+  user-service:
+    driver: bridge
+  notification-service:
+    driver: bridge
+
+services:
+#  kafka
+  kafka-zookeeper:
+    image: confluentinc/cp-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    expose:
+      - 2181
+    networks:
+      - kafka
+
+  kafka:
+    image: confluentinc/cp-kafka
+    restart: on-failure:3
+    depends_on:
+      - kafka-zookeeper
+    expose:
+      - 9092
+      - 29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: kafka-zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - kafka
+
+#  users service
+  user-postgres:
+    image: "postgres"
+    environment:
+      POSTGRES_USER: john
+      POSTGRES_PASSWORD: pwd0123456789
+      POSTGRES_DB: db
+    expose:
+      - 5432
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - user-service
+
+  user-service:
+    image: user-service
+    depends_on:
+      - user-postgres
+      - kafka
+    restart: on-failure:3
+    ports:
+      - 8080:8080
+      - 5005:5005
+      - 8091:8091
+    environment:
+      _JAVA_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      server.port: 8080
+      spring.output.ansi.enabled: ALWAYS
+      spring.profiles.active: prod
+      management.server.port: 8091
+#      postgres
+      spring.datasource.url: postgresql://user-postgres:5432/db
+      spring.datasource.username: john
+      spring.datasource.password: pwd0123456789
+#      kafka
+      spring.kafka.properties.topic: 'notifications'
+      spring.kafka.bootstrap-servers: 'kafka:29092'
+    networks:
+      - user-service
+      - kafka
+
+#  notification service
+  notification-smtp:
+    image: reachfive/fake-smtp-server
+    ports:
+      - 1080:1080
+    expose:
+      - 1025
+    networks:
+      - notification-service
+
+  notification-service:
+    image: notification-service
+    depends_on:
+      - kafka
+    ports:
+      - 8090:8080
+      - 5015:5005
+      - 8191:8091
+    environment:
+      _JAVA_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      server.port: 8080
+      spring.output.ansi.enabled: ALWAYS
+      spring.profiles.active: dev
+      management.server.port: 8091
+#      kafka
+      spring.kafka.properties.topic: 'notifications'
+      spring.kafka.bootstrap-servers: 'kafka:29092'
+#      mail
+      spring.mail.host: notification-smtp
+      spring.mail.port: 1025
+      template.account.created.subject: "Account created"
+      template.account.created.text: Registered user with username '<username>' and email '<email>'
+    networks:
+      - notification-service
+      - kafka

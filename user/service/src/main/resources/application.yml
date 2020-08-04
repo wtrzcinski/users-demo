@@ -1,0 +1,10 @@
+spring:
+  liquibase:
+    change-log: classpath:/changelog.xml
+    url: jdbc:${spring.datasource.url}
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
+  r2dbc:
+    url: r2dbc:${spring.datasource.url}
+    username: ${spring.datasource.username}
+    password: ${spring.datasource.password}

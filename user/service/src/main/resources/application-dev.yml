@@ -1,0 +1,13 @@
+management:
+  endpoints.web.exposure.include: '*'
+  endpoint.health.show-details: always
+
+logging:
+  file:
+    name: target/log/service.log
+    max-history: 1
+
+server:
+  error:
+    include-exception: true
+    include-stacktrace: never
